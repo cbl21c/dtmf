@@ -12,13 +12,13 @@ from math import pi, sqrt, cos
 import audio
 
 
-################################
-#                              #
-#  dtmfout(dtmf, fname)        #
-#                              #
-################################
+#################################
+#                               #
+#  dtmfout(dtmf, fname, ftype)  #
+#                               #
+#################################
 
-def dtmfout(dtmf, fname):
+def dtmfout(dtmf, fname, ftype):
     # aliases for the non-numeric keys
     STAR = 10
     HASH = 11
@@ -68,9 +68,13 @@ def dtmfout(dtmf, fname):
             dig[m] = int((hi_pwr * cos(2 * pi * fhi * m * dt) +
                           lo_pwr * cos(2 * pi * flo * m * dt)) * 64)
 
+            # wav samples need to be unsigned values so add a DC component
+            if ftype == audio.TYPE_WAV:
+                dig[m] = dig[m] + 127
+
         signal = signal + silence + dig + silence
 
-    return audio.write(fname, audio.TYPE_AU, signal, Fs)
+    return audio.write(fname, ftype, signal, Fs)
 
 
 ################################
@@ -90,15 +94,23 @@ parser.add_argument("dtmf", help="DTMF digit sequence")
 
 # group for mutually exclusive arguments for file type
 group = parser.add_mutually_exclusive_group()
-group.add_argument("-au", dest="file", help="output au file")
-group.add_argument("-wav", dest="file", help="output wav file")
+group.add_argument("-au", dest="aufile", help="output au file")
+group.add_argument("-wav", dest="wavfile", help="output wav file")
 
 
 # parse the arguments
 args = parser.parse_args()
 
+# determine the output file type
+if args.aufile:
+    ftype = audio.TYPE_AU
+    fname = args.aufile
+elif args.wavfile:
+    ftype = audio.TYPE_WAV
+    fname = args.wavfile
+
 # output filename is guaranteed to be defined
-err = dtmfout(args.dtmf, args.file)
+err = dtmfout(args.dtmf, fname, ftype)
 
 if err != 0:
     sys.stderr.write(parser.prog + ": " + os.strerror(err) + "\n")

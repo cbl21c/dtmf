@@ -44,7 +44,7 @@ def wavheader(wavfile, Fs, size):
     channels = 1
     sample_rate = Fs
     bits_per_sample = 8
-    byte_rate = sample_rate * channels * bits_per_sample
+    byte_rate = sample_rate * channels
     block_align = channels * bits_per_sample / 8
 
     data = "data"
@@ -91,8 +91,15 @@ def write(fname, ftype, signal, Fs):
     if size == 0:
         return errno.EINVAL
 
+    # sample values need to be in the appropriate range
+    lower = -128
+    upper = 128
+    if ftype == TYPE_WAV:
+        lower = lower + 128
+        upper = upper + 128
+
     for n in range(size):
-        if type(signal[n]) is not int or signal[n] < -128 or signal[n] > 127:
+        if (type(signal[n]) is not int) or (signal[n] in range(lower, upper) == False):
             return errno.EINVAL
 
 
@@ -104,12 +111,18 @@ def write(fname, ftype, signal, Fs):
 
     #
     # check that the file type is valid and call the appropriate
-    # function to write the header
+    # function to write the header and...
+    # construct a format string to say that we have /size/ bytes
+    # and then write to the file handle
     #
     if ftype == TYPE_AU:
         err = auheader(fh, Fs, size)
+        # signed bytes for au file
+        fmt = "%db" % size
     elif ftype == TYPE_WAV:
         err = wavheader(fh, Fs, size)
+        # signed unbytes for wav file
+        fmt = "%dB" % size
     else:
         return errno.EINVAL
 
@@ -117,9 +130,6 @@ def write(fname, ftype, signal, Fs):
     if err != 0:
         return err
 
-    # construct a format string to say that we have /size/ bytes
-    # and then write to the file handle
-    fmt = "%db" % size
     try:
         fh.write(struct.pack(fmt, *signal))
         fh.close()
